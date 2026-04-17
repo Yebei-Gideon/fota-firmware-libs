@@ -77,7 +77,12 @@ jobs:
       - name: Build OTA test chain (v1 → v5)
         if: matrix.name == 'ESP32'
         working-directory: ESP/ESP32
-        run: python build_test_bins.py
+        run: |
+          python build_test_bins.py 1
+          python build_test_bins.py 2
+          python build_test_bins.py 3
+          python build_test_bins.py 4
+          python build_test_bins.py 5
 
       # -------------------------
       # ESP8266 BUILD
