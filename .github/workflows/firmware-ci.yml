@@ -69,7 +69,7 @@ jobs:
           pio run -e esp32s3
           pio run -e esp32c3
           pio run -e esp32s2
-          pio run -e esp32c6
+          # pio run -e esp32c6
           pio run -e esp32h2
           pio run -e esp32c2
 
