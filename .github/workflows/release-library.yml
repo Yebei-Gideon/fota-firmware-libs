@@ -1,0 +1,68 @@
+name: FOTA Library Release
+
+on:
+  workflow_run:
+    workflows: ["ESP32 CI Build", "ESP8266 CI Build", "OTA Chain CI (v1 → v5)"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish Library
+    runs-on: ubuntu-latest
+
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Prepare output folder
+        run: mkdir -p dist
+
+      - name: Package ESP32 Library
+        run: |
+          cd ESP/ESP32
+          zip -r ../../dist/FotaClient-ESP32.zip \
+            src include examples/BasicUpdate library.json \
+            library.properties README.md CHANGELOG.md keywords.txt
+
+      - name: Package ESP8266 Library
+        run: |
+          cd ESP/ESP8266
+          zip -r ../../dist/FotaClient-ESP8266.zip \
+            src include examples/BasicUpdate library.json \
+            library.properties README.md CHANGELOG.md keywords.txt
+
+      - name: Package OTA demo binaries
+        run: |
+          cd ESP/ESP32/tests
+          zip -j ../../../dist/FOTA-Demo-Binaries.zip firmware_v*.bin
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.zip > SHA256SUMS.txt
+
+      - name: Generate version
+        id: version
+        run: echo "VERSION=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: FOTA Library ${{ steps.version.outputs.VERSION }}
+          files: |
+            dist/FotaClient-ESP32.zip
+            dist/FotaClient-ESP8266.zip
+            dist/FOTA-Demo-Binaries.zip
+            dist/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

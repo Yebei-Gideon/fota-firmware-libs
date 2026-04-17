@@ -1,0 +1,44 @@
+name: OTA Chain CI (v1 → v5)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ota-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ota:
+    name: OTA Firmware Chain
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ESP/ESP32
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build OTA firmware versions
+        run: |
+          pio run -e firmware_v1
+          pio run -e firmware_v2
+          pio run -e firmware_v3
+          pio run -e firmware_v4
+          pio run -e firmware_v5
+
+      - name: Collect OTA binaries
+        run: python build_test_bins.py 1 2 3 4 5
