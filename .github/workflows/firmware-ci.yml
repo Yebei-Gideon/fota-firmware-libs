@@ -1,0 +1,321 @@
+name: FOTA Firmware CI and Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Default to read for validation jobs.
+# The release job below upgrades this to write where needed.
+permissions:
+  contents: read
+
+# Avoid overlapping runs on the same branch.
+concurrency:
+  group: fota-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # ESP32 CI
+  # ============================================================
+  # This job validates the ESP32 library against real hardware
+  # targets supported by the project:
+  # - esp32dev
+  # - esp32s3
+  # - esp32c3
+  # - esp32s2
+  #
+  # It does not publish anything. It only verifies that the code
+  # builds successfully for all supported ESP32 boards.
+  esp32-build:
+    name: ESP32 Build Matrix
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ESP/ESP32
+
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - esp32dev
+          - esp32s3
+          - esp32c3
+          - esp32s2
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO and pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+            ESP/ESP32/.pio
+          key: ${{ runner.os }}-esp32-pio-${{ hashFiles(
+            'ESP/ESP32/platformio.ini',
+            'ESP/ESP32/src/**',
+            'ESP/ESP32/include/**',
+            'ESP/ESP32/examples/**',
+            'ESP/ESP32/pre_src_override.py'
+          ) }}
+          restore-keys: |
+            ${{ runner.os }}-esp32-pio-
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade pip platformio
+
+      - name: Show PlatformIO system info
+        run: pio system info
+
+      - name: Verify ESP32 user config exists
+        run: test -f include/FotaUserConfig.h
+
+      - name: Build selected ESP32 target
+        run: pio run -e ${{ matrix.env }}
+
+  # ============================================================
+  # OTA DEMO CI
+  # ============================================================
+  # This job builds the versioned demo firmware chain used to
+  # test upgrade behavior from v1 to v5.
+  #
+  # The output is not the public library release. It is a set of
+  # demo binaries that help users and maintainers verify update
+  # flows and regression behavior.
+  ota-build:
+    name: OTA Demo Chain
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ESP/ESP32
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO and pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+            ESP/ESP32/.pio
+          key: ${{ runner.os }}-esp32-ota-pio-${{ hashFiles(
+            'ESP/ESP32/platformio.ini',
+            'ESP/ESP32/src/**',
+            'ESP/ESP32/include/**',
+            'ESP/ESP32/examples/**',
+            'ESP/ESP32/pre_src_override.py',
+            'ESP/ESP32/build_test_bins.py'
+          ) }}
+          restore-keys: |
+            ${{ runner.os }}-esp32-ota-pio-
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade pip platformio
+
+      - name: Show PlatformIO system info
+        run: pio system info
+
+      - name: Build OTA firmware versions v1 to v5
+        run: |
+          pio run -e firmware_v1
+          pio run -e firmware_v2
+          pio run -e firmware_v3
+          pio run -e firmware_v4
+          pio run -e firmware_v5
+
+      - name: Collect OTA binaries into tests/
+        run: python build_test_bins.py 1 2 3 4 5
+
+      - name: Upload OTA demo binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-ota-demo-binaries
+          path: ESP/ESP32/tests/*.bin
+          if-no-files-found: error
+
+  # ============================================================
+  # ESP8266 CI
+  # ============================================================
+  # This job validates the ESP8266 library against the supported
+  # ESP8266 targets:
+  # - esp8266_d1mini
+  # - esp8266_nodemcu
+  # - esp8266_generic
+  #
+  # Like the ESP32 job, it only verifies builds. It does not
+  # publish binaries or package release artifacts.
+  esp8266-build:
+    name: ESP8266 Build Matrix
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ESP/ESP8266
+
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - esp8266_d1mini
+          - esp8266_nodemcu
+          - esp8266_generic
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO and pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+            ESP/ESP8266/.pio
+          key: ${{ runner.os }}-esp8266-pio-${{ hashFiles(
+            'ESP/ESP8266/platformio.ini',
+            'ESP/ESP8266/src/**',
+            'ESP/ESP8266/include/**',
+            'ESP/ESP8266/examples/**'
+          ) }}
+          restore-keys: |
+            ${{ runner.os }}-esp8266-pio-
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade pip platformio
+
+      - name: Show PlatformIO system info
+        run: pio system info
+
+      - name: Verify ESP8266 user config exists
+        run: test -f include/FotaUserConfig.h
+
+      - name: Build selected ESP8266 target
+        run: pio run -e ${{ matrix.env }}
+
+  # ============================================================
+  # RELEASE PACKAGING
+  # ============================================================
+  # This job runs only on push to main and only after the build
+  # and demo jobs have succeeded.
+  #
+  # It publishes:
+  # - ESP32 developer library ZIP
+  # - ESP8266 developer library ZIP
+  # - OTA demo binaries ZIP
+  # - SHA-256 checksums
+  #
+  # It does not publish .pio build folders or internal CI noise.
+  release:
+    name: Package and Publish Release
+    runs-on: ubuntu-latest
+    needs:
+      - esp32-build
+      - ota-build
+      - esp8266-build
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download OTA demo artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: esp32-ota-demo-binaries
+          path: artifacts/esp32-ota-demo-binaries
+
+      - name: Prepare release directory
+        run: mkdir -p dist
+
+      - name: Package ESP32 developer library
+        run: |
+          cd ESP/ESP32
+          zip -r ../../dist/FotaClient-ESP32-Library.zip \
+            src \
+            include \
+            examples/BasicUpdate \
+            library.json \
+            library.properties \
+            README.md \
+            CHANGELOG.md \
+            keywords.txt
+
+      - name: Package ESP8266 developer library
+        run: |
+          cd ESP/ESP8266
+          zip -r ../../dist/FotaClient-ESP8266-Library.zip \
+            src \
+            include \
+            examples/BasicUpdate \
+            library.json \
+            library.properties \
+            README.md \
+            CHANGELOG.md \
+            keywords.txt
+
+      - name: Package OTA demo binaries
+        run: |
+          cd artifacts/esp32-ota-demo-binaries
+          zip -j ../../dist/FOTA-ESP32-OTA-Demos.zip *.bin
+
+      - name: Create SHA-256 checksums
+        run: |
+          cd dist
+          sha256sum *.zip > SHA256SUMS.txt
+
+      - name: Generate release version
+        id: version
+        run: echo "VERSION=v1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: FOTA Library ${{ steps.version.outputs.VERSION }}
+          body: |
+            Automated release from commit ${{ github.sha }}.
+
+            This release includes:
+            - ESP32 developer library package
+            - ESP8266 developer library package
+            - OTA demo firmware binaries for v1 to v5
+            - SHA-256 checksums for the packaged archives
+          files: |
+            dist/FotaClient-ESP32-Library.zip
+            dist/FotaClient-ESP8266-Library.zip
+            dist/FOTA-ESP32-OTA-Demos.zip
+            dist/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
