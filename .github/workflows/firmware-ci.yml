@@ -49,41 +49,9 @@ jobs:
       - name: PlatformIO Info
         run: pio system info
 
-      # ─────────────────────────────────────────────
-      # 🔧 FIX: Create FotaUserConfig.h for CI
-      # ─────────────────────────────────────────────
-      - name: Prepare FOTA config headers (ESP32)
-        if: matrix.name == 'ESP32'
-        run: |
-          echo "Preparing FotaUserConfig.h files..."
-
-          # BasicUpdate
-          if [ -f ESP/ESP32/examples/BasicUpdate/FotaUserConfig.example.h ]; then
-            cp ESP/ESP32/examples/BasicUpdate/FotaUserConfig.example.h \
-               ESP/ESP32/examples/BasicUpdate/FotaUserConfig.h
-          fi
-
-          # Firmware versions v1 → v5
-          for dir in ESP/ESP32/examples/FirmwareV*; do
-            if [ -f "$dir/FotaUserConfig.example.h" ]; then
-              cp "$dir/FotaUserConfig.example.h" "$dir/FotaUserConfig.h"
-              echo "Prepared config for $dir"
-            fi
-          done
-
-      - name: Prepare FOTA config headers (ESP8266)
-        if: matrix.name == 'ESP8266'
-        run: |
-          echo "Preparing ESP8266 FotaUserConfig.h..."
-
-          if [ -f ESP/ESP8266/examples/BasicUpdate/FotaUserConfig.h.example ]; then
-            cp ESP/ESP8266/examples/BasicUpdate/FotaUserConfig.h.example \
-               ESP/ESP8266/examples/BasicUpdate/FotaUserConfig.h
-          fi
-
-      # ─────────────────────────────────────────────
-      # 🔨 Build ESP32 (ALL important environments)
-      # ─────────────────────────────────────────────
+      # -------------------------
+      # ESP32 BUILD
+      # -------------------------
       - name: Build ESP32 base environments
         if: matrix.name == 'ESP32'
         working-directory: ESP/ESP32
@@ -96,17 +64,15 @@ jobs:
           pio run -e esp32h2
           pio run -e esp32c2
 
-      # ─────────────────────────────────────────────
-      # 🧪 OTA chain (your core feature)
-      # ─────────────────────────────────────────────
+      # OTA chain build
       - name: Build OTA test chain (v1 → v5)
         if: matrix.name == 'ESP32'
         working-directory: ESP/ESP32
         run: python build_test_bins.py
 
-      # ─────────────────────────────────────────────
-      # 🔨 Build ESP8266 (ALL environments)
-      # ─────────────────────────────────────────────
+      # -------------------------
+      # ESP8266 BUILD
+      # -------------------------
       - name: Build ESP8266 environments
         if: matrix.name == 'ESP8266'
         working-directory: ESP/ESP8266
@@ -115,9 +81,9 @@ jobs:
           pio run -e esp8266_nodemcu
           pio run -e esp8266_generic
 
-      # ─────────────────────────────────────────────
-      # 📦 Upload artifacts
-      # ─────────────────────────────────────────────
+      # -------------------------
+      # ARTIFACTS
+      # -------------------------
       - name: Upload ESP32 OTA test binaries
         if: matrix.name == 'ESP32'
         uses: actions/upload-artifact@v4
@@ -142,9 +108,9 @@ jobs:
           path: ESP/ESP8266/.pio/build/**/firmware.bin
           if-no-files-found: warn
 
-  # ─────────────────────────────────────────────
-  # 🚀 Release job
-  # ─────────────────────────────────────────────
+  # -------------------------
+  # RELEASE
+  # -------------------------
   release:
     name: Release Firmware
     needs: build

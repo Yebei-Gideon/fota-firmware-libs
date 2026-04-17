@@ -1,13 +1,19 @@
-// FotaUserConfig.h
-// ----------------
-
 #pragma once
 
-// Wi‑Fi credentials
-static const char* WIFI_SSID = "YOUR_WIFI_SSID";
-static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+// ─────────────────────────────
+// WiFi Configuration (DEV ONLY)
+// ─────────────────────────────
+#ifndef WIFI_SSID
+#define WIFI_SSID "YOUR_WIFI_SSID"
+#endif
 
-// FOTA backend configuration
+#ifndef WIFI_PASS
+#define WIFI_PASS "YOUR_WIFI_PASSWORD"
+#endif
+
+// ─────────────────────────────
+// FOTA Backend
+// ─────────────────────────────
 #ifndef FOTA_SERVER_URL
 #define FOTA_SERVER_URL "https://secure-iot-fota-platform.onrender.com"
 #endif
@@ -16,9 +22,21 @@ static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 #define FOTA_CURRENT_VERSION "1.0.0"
 #endif
 
-#define FOTA_DEVICE_ID "YOUR_DEVICE_ID"
-#define FOTA_HARDWARE_MODEL "YOUR_HARDWARE_MODEL"
+#ifndef FOTA_DEVICE_ID
+#define FOTA_DEVICE_ID "DEVICE_001"
+#endif
 
-// Signature verification (recommended in production)
+#ifndef FOTA_HARDWARE_MODEL
+#define FOTA_HARDWARE_MODEL "ESP32_DEVKIT"
+#endif
+
+// ─────────────────────────────
+// Security Settings
+// ─────────────────────────────
+#ifndef FOTA_VERIFY_SIGNATURE
 #define FOTA_VERIFY_SIGNATURE 1
+#endif
+
+#ifndef FOTA_AUTO_FETCH_PUBLIC_KEY
 #define FOTA_AUTO_FETCH_PUBLIC_KEY 1
+#endif
