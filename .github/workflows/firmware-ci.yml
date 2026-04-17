@@ -1,0 +1,134 @@
+name: Firmware CI (ESP32 & ESP8266 + OTA Tests)
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Firmware
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ESP32
+            path: ESP/ESP32
+          - name: ESP8266
+            path: ESP/ESP8266
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+            .pio
+          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: PlatformIO Info
+        run: pio system info
+
+      # ─────────────────────────────────────────────
+      # 🔨 Build base environments (sanity builds)
+      # ─────────────────────────────────────────────
+      - name: Build base firmware (ESP32 variants)
+        if: matrix.name == 'ESP32'
+        working-directory: ESP/ESP32
+        run: |
+          pio run -e esp32dev
+          pio run -e esp32s3
+          pio run -e esp32c3
+          pio run -e esp32s2
+
+      - name: Build base firmware (ESP8266)
+        if: matrix.name == 'ESP8266'
+        working-directory: ESP/ESP8266
+        run: pio run
+
+      # ─────────────────────────────────────────────
+      # 🧪 OTA upgrade chain test (your real value)
+      # ─────────────────────────────────────────────
+      - name: Build OTA test chain (v1 → v5)
+        if: matrix.name == 'ESP32'
+        working-directory: ESP/ESP32
+        run: python build_test_bins.py
+
+      # ─────────────────────────────────────────────
+      # 📦 Upload artifacts
+      # ─────────────────────────────────────────────
+      - name: Upload ESP32 OTA test binaries
+        if: matrix.name == 'ESP32'
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-fota-test-bins
+          path: ESP/ESP32/tests/*.bin
+          if-no-files-found: error
+
+      - name: Upload ESP32 build outputs
+        if: matrix.name == 'ESP32'
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-build
+          path: ESP/ESP32/.pio/build/**/firmware.bin
+          if-no-files-found: warn
+
+      - name: Upload ESP8266 build outputs
+        if: matrix.name == 'ESP8266'
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp8266-build
+          path: ESP/ESP8266/.pio/build/**/firmware.bin
+          if-no-files-found: warn
+
+  # ─────────────────────────────────────────────
+  # 🚀 Release job (main branch only)
+  # ─────────────────────────────────────────────
+  release:
+    name: Release Firmware
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Show artifacts
+        run: ls -R artifacts
+
+      - name: Generate version
+        id: version
+        run: echo "VERSION=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Firmware ${{ steps.version.outputs.VERSION }}
+          files: |
+            artifacts/**/*.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
