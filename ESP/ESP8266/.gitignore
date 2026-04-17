@@ -7,4 +7,4 @@
 
 # Per-project user config files may contain credentials — never commit them.
 # Commit FotaUserConfig.h.example instead.
-**/FotaUserConfig.h
+# **/FotaUserConfig.h
