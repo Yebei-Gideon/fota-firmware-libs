@@ -49,6 +49,15 @@ jobs:
       - name: PlatformIO Info
         run: pio system info
 
+      - name: Verify ESP32 config file exists
+        if: matrix.name == 'ESP32'
+        working-directory: ESP/ESP32
+        run: |
+          pwd
+          ls -la
+          ls -la include
+          test -f include/FotaUserConfig.h
+
       # -------------------------
       # ESP32 BUILD
       # -------------------------
