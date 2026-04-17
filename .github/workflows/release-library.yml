@@ -1,10 +1,9 @@
 name: FOTA Library Release
 
 on:
-  workflow_run:
-    workflows: ["ESP32 CI Build", "ESP8266 CI Build", "OTA Chain CI (v1 → v5)"]
-    types:
-      - completed
+ workflow_run:
+   workflows: ["CI Gate (Release Approval Check)"]
+   types: [completed]
 
 permissions:
   contents: write
