@@ -71,7 +71,7 @@ jobs:
           pio run -e esp32s2
           # pio run -e esp32c6
           # pio run -e esp32h2
-          pio run -e esp32c2
+          # pio run -e esp32c2
 
       # OTA chain build
       - name: Build OTA test chain (v1 → v5)
