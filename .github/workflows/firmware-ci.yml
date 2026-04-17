@@ -2,9 +2,9 @@ name: Firmware CI (ESP32 & ESP8266 + OTA Tests)
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
   pull_request:
-    branches: [main, development]
+    branches: [main]
 
 permissions:
   contents: write
