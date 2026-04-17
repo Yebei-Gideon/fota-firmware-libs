@@ -1,0 +1,38 @@
+name: CI Gate (Release Approval Check)
+
+on:
+  workflow_run:
+    workflows:
+      - ESP32 CI Build
+      #- ESP8266 CI Build
+      - OTA Chain CI (v1 → v5)
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Validate Full CI Status
+    runs-on: ubuntu-latest
+
+    if: >
+      github.event.workflow_run.head_branch == 'main'
+
+    steps:
+      - name: Check triggering workflow status
+        run: |
+          echo "Workflow: ${{ github.event.workflow_run.name }}"
+          echo "Status: ${{ github.event.workflow_run.conclusion }}"
+          echo "SHA: ${{ github.event.workflow_run.head_sha }}"
+
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "CI Gate FAILED"
+            exit 1
+          fi
+
+      - name: Mark gate success
+        run: |
+          echo "CI GATE PASSED"
+          echo "Commit is eligible for release"
