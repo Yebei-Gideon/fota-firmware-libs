@@ -1,7 +1,0 @@
-{
-	// configure file associatetions for c projects
-	"files.associations": {
-		"*.c": "c",
-		"*.h": "c"
-	}
-}

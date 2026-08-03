@@ -1,0 +1,4 @@
+[submodule "ESP/ESP32"]
+	path = ESP/ESP32
+	url = https://github.com/NodeWave-EA/FOTA-Client-ESP32.git
+	branch = main
